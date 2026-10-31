@@ -1,0 +1,282 @@
+{
+  "name": "Tugas 7 Fildzah",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -624,
+        -64
+      ],
+      "id": "5f3d8dd9-28e7-41ca-9630-9c2671ecd0a4",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1bEyCVuKQgKHPks82VeFJOu8qoihzRuTi4fYIp-2L_38",
+          "mode": "list",
+          "cachedResultName": "Copy of Data Dummy Catatan Keuangan",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bEyCVuKQgKHPks82VeFJOu8qoihzRuTi4fYIp-2L_38/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bEyCVuKQgKHPks82VeFJOu8qoihzRuTi4fYIp-2L_38/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -400,
+        -64
+      ],
+      "id": "43ff81c2-ce88-483a-8bb6-e92231b33eba",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "7WMhu0SJYNwNYMmL",
+          "name": "Google Service Account account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sekarang = DateTime.now().setZone('Asia/Jakarta').endOf('day');\nconst batas = sekarang.minus({ days: 7 }).startOf('day');\n\nconst data = $input.all().map(i => i.json).filter(r => {\n  if (!r['Tanggal']) return false;\n  const tgl = DateTime.fromFormat(String(r['Tanggal']).trim(), 'dd/MM/yyyy', { zone: 'Asia/Jakarta' });\n  return tgl.isValid && tgl >= batas && tgl <= sekarang;\n});\n\nconst total = data.reduce((s, r) => s + Number(r['Jumlah (IDR)'] || 0), 0);\n\nconst daftar = data.map((r, i) =>\n  `${i + 1}. ${r['Tanggal']} | ${r['Kategori']} | ${r['Deskripsi']} | ${r['Metode Pembayaran']} | Rp${r['Jumlah (IDR)']} | ${r['Penerima']}`\n).join('\\n');\n\nreturn [{ json: { jumlah: data.length, total, daftar } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -64
+      ],
+      "id": "bea482d8-e2e6-4b13-b4e0-94492c746907",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e61ea422-1444-4d30-887b-65cdd5102319",
+              "leftValue": "={{ $json.jumlah }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        48,
+        -64
+      ],
+      "id": "f1caa831-ea54-44e8-ba33-c9bc7687d6e9",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "7427145171",
+        "text": "Nihil: tidak ada pengeluaran tercatat minggu ini.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        160,
+        176
+      ],
+      "id": "59fef682-4711-4c3f-9677-3d42d815036e",
+      "name": "Send a text message",
+      "webhookId": "74abb42b-4740-4904-aabc-53b3c24d9b34",
+      "credentials": {
+        "telegramApi": {
+          "id": "sq4sJ1FiUlL8zKQm",
+          "name": "Telegram account 7"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Kamu adalah asisten keuangan pribadi. Berikut data pengeluaran 7 hari terakhir:\n\n{{ $json.daftar }}\n\nTotal pengeluaran: Rp{{ $json.total }}\n\nTugasmu:\n1. Analisis kebiasaan belanja (kategori terbesar, metode pembayaran yang sering dipakai, pola yang menonjol).\n2. Berikan SATU saran penghematan yang konkret dan bisa langsung dilakukan minggu depan.\n\nJawab dalam bahasa Indonesia yang santai dan singkat, maksimal 150 kata, tanpa format markdown.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        272,
+        -160
+      ],
+      "id": "1890fe6d-a837-4d6c-9d73-aa9c3fecb820",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        272,
+        16
+      ],
+      "id": "e1c369f6-8be9-46f6-9c75-fa9517704787",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "7IHcbnAtK3b5EagG",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7427145171",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        -160
+      ],
+      "id": "fa612eaa-0d05-48cd-944f-cb19ce82937c",
+      "name": "Send a text message1",
+      "webhookId": "3e93f556-fe8b-4594-922c-5b4aae4482a3",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "telegramApi": {
+          "id": "sq4sJ1FiUlL8zKQm",
+          "name": "Telegram account 7"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "19bd7995-3beb-42c5-9a96-2b216c57845b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "nfdyvoVnr0HfddMN",
+  "tags": []
+}
